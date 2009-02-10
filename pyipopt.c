@@ -278,8 +278,8 @@ static PyObject *create(PyObject *obj, PyObject *args)
 		myowndata.eval_grad_f_python 	= gradf;
 		myowndata.eval_g_python 		= g;
 		myowndata.eval_jac_g_python 	= jacg;
-		 // printf("D field assigned %p\n", &myowndata);
-		 // printf("D field assigned %p\n",myowndata.eval_jac_g_python );
+		 // logger("D field assigned %p\n", &myowndata);
+		 // logger("D field assigned %p\n",myowndata.eval_jac_g_python );
 		
 		if (h !=NULL )
 		{
@@ -295,7 +295,7 @@ static PyObject *create(PyObject *obj, PyObject *args)
 		}
 		else
 		{
-			printf("[PyIPOPT] Ipopt will use Hessian approximation.\n");
+			logger("[PyIPOPT] Ipopt will use Hessian approximation.\n");
 		}
 		
 		Number* x_L = NULL;                  /* lower bounds on x */
@@ -304,7 +304,7 @@ static PyObject *create(PyObject *obj, PyObject *args)
   		Number* g_U = NULL;                  /* upper bounds on g */
 		
 		if (m <0 || n<0 ) {
-			printf("[PyIPOPT] m or n can't be negative, return false\n");
+			logger("[PyIPOPT] m or n can't be negative, return false\n");
 			Py_INCREF(Py_False);
 			return Py_False;
 		}
@@ -336,7 +336,7 @@ static PyObject *create(PyObject *obj, PyObject *args)
 	  	/* create the Ipopt Problem */
 	  	
 	  	int C_indexstyle = 0;
-	  	printf("[PyIPOPT] nele_hess is %d\n", nele_hess);
+	  	logger("[PyIPOPT] nele_hess is %d\n", nele_hess);
 		IpoptProblem thisnlp = CreateIpoptProblem(n, x_L, x_U, m, g_L, g_U, nele_jac, nele_hess, C_indexstyle,  &eval_f, &eval_g, &eval_grad_f,  &eval_jac_g, &eval_h);
 		logger("[PyIPOPT] Problem created");
 		
@@ -398,7 +398,7 @@ PyObject *solve(PyObject *self, PyObject *args)
 	
 	if (!PyArg_ParseTuple(args, "O!|O", &PyArray_Type, &x0, &myuserdata)) 
     {
-		printf("Parameter X0 is expected to be an Numpy array type.\n");
+		printf("[Error] Parameter X0 is expected to be an Numpy array type.\n");
 		Py_INCREF(Py_False);
 		return Py_False;
 	}
@@ -406,12 +406,12 @@ PyObject *solve(PyObject *self, PyObject *args)
 	if (myuserdata != NULL)
 	{
 		bigfield->userdata = myuserdata;
-		printf("[PyIPOPT] User specified data field to callback function.\n");
+		logger("[PyIPOPT] User specified data field to callback function.\n");
 	}
 		
 	if (nlp == NULL)
 	{
-		printf ("nlp objective passed to solve is NULL\n Problem created?\n");
+		printf("[Error] nlp objective passed to solve is NULL\n Problem created?\n");
 		Py_INCREF(Py_False);
 		return Py_False;
 	}
@@ -423,7 +423,7 @@ PyObject *solve(PyObject *self, PyObject *args)
   	if (bigfield->eval_h_python == NULL)
   	{
   		AddIpoptStrOption(nlp, "hessian_approximation","limited-memory");
-		//printf("Can't find eval_h callback function\n");
+		//logger("Can't find eval_h callback function\n");
 	}
   	/* allocate space for the initial point and set the values */
   	
@@ -431,7 +431,7 @@ PyObject *solve(PyObject *self, PyObject *args)
   	int* dim = ((PyArrayObject*)x0)->dimensions; 
   	n = dim[0];
   	dX[0]  = n;
-	// printf("n is %d, m is %d\n", n, m);
+	// logger("n is %d, m is %d\n", n, m);
 	x = (PyArrayObject *)PyArray_FromDims( 1, dX, PyArray_DOUBLE );
 	
 	Number* newx0 = (Number*)malloc(sizeof(Number)*n);
@@ -441,14 +441,14 @@ PyObject *solve(PyObject *self, PyObject *args)
 	
   	mL = (PyArrayObject *)PyArray_FromDims( 1, dX, PyArray_DOUBLE );
 	mU = (PyArrayObject *)PyArray_FromDims( 1, dX, PyArray_DOUBLE );
-	// printf("Ready to go\n");
+	// logger("Ready to go\n");
 			
   	status = IpoptSolve(nlp, newx0, NULL, &obj, NULL, (double*)mL->data, (double*)mU->data, (UserDataPtr)bigfield);
  	// The final parameter is the userdata (void * type)
  
  	// For status code, see: IpReturnCodes_inc.h 
   	if (status == Solve_Succeeded || Solved_To_Acceptable_Level ) {
-  		printf("Problem solved\n");
+  		logger("Problem solved\n");
 		double* xdata = (double*) x->data;
 		for (i =0; i< n; i++)
 			xdata[i] = newx0[i];
@@ -466,7 +466,7 @@ PyObject *solve(PyObject *self, PyObject *args)
   	
   	else {
   		// FreeIpoptProblem(nlp);
-  		printf("Ipopt faied in solving problem instance\n");
+  		printf("[Error] Ipopt faied in solving problem instance\n");
   		Py_INCREF(Py_False);
   		return Py_False;
 	}

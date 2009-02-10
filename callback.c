@@ -31,10 +31,19 @@
 	
 #include "hook.h"
 
-void logger(char* str)
+#if 0
+void logger(const char* fmt,...)
 {
-//	printf("%s\n", str);
+	va_list ap;
+	va_start(ap,fmt);
+	vprintf(fmt,ap);
+	va_end(ap);
+        printf("\n");
+	fflush(stdout);
 }
+#else
+void logger(const char* fmt,...) {}
+#endif
 
 
 #define Is_double_Array(obj) ((PyArray_TYPE(obj)) == NPY_DOUBLE)
@@ -364,7 +373,7 @@ Bool eval_jac_g(Index n, Number *x, Bool new_x,
 		for (i = 0; i < nele_jac; i++) {
 			iRow[i] = (Index) rowd[i];
 			jCol[i] = (Index) cold[i];
-			//printf("%d Row %d, Col %d\n", i, iRow[i], jCol[i]);
+			//logger("%d Row %d, Col %d\n", i, iRow[i], jCol[i]);
 		}
 		Py_CLEAR(arrayx);
 		Py_DECREF(result);
@@ -463,7 +472,7 @@ Bool eval_h(Index n, Number *x, Bool new_x, Number obj_factor,
 	int dims2[1];
 	
 	if (myowndata->eval_h_python == NULL)
-	{	printf("There is no eval_h assigned");
+	{	printf("[Error] There is no eval_h assigned");
 		return FALSE;
 	}
 	if (values == NULL) {
@@ -494,7 +503,7 @@ Bool eval_h(Index n, Number *x, Bool new_x, Number obj_factor,
 		for (i = 0; i < nele_hess; i++) {
 			iRow[i] = (Index)rdata[i];
 			jCol[i] = (Index)cdata[i];
-			// printf("PyIPOPT_DEBUG %d, %d\n", iRow[i], jCol[i]);
+			// logger("PyIPOPT_DEBUG %d, %d\n", iRow[i], jCol[i]);
 		}
 
 		Py_DECREF(objfactor);
@@ -516,7 +525,7 @@ Bool eval_h(Index n, Number *x, Bool new_x, Number obj_factor,
 			PyObject* tempresult = 
 				PyObject_CallObject (myowndata->apply_new_python, arg1);
 			if (!tempresult) {
-//				printf("[Error] Python function apply_new returns a None\n");
+				printf("[Error] Python function apply_new returns a None\n");
 				Py_DECREF(arg1);	
 				return FALSE;
 			}
@@ -544,7 +553,7 @@ Bool eval_h(Index n, Number *x, Bool new_x, Number obj_factor,
 		double* tempdata = (double*)result->data;
 		for (i = 0; i < nele_hess; i++)
 		{	values[i] = tempdata[i];
-			// printf("PyDebug %f \n", values[i]);
+			// logger("PyDebug %f \n", values[i]);
 		}	
 		Py_CLEAR(arrayx);
 		Py_CLEAR(lagrangex);

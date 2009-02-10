@@ -39,7 +39,10 @@ typedef struct {
 
 // static IpoptProblem nlp = NULL;             /* IpoptProblem */
 
-void logger(char* str);
+#ifdef __GNUC__
+__attribute__ ((format (printf, 1, 2)))
+#endif
+void logger(const char* fmt, ...);
 
 
 typedef struct {
