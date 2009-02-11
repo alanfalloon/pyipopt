@@ -36,6 +36,10 @@ void logger(char* str)
 //	printf("%s\n", str);
 }
 
+
+#define Is_double_Array(obj) ((PyArray_TYPE(obj)) == NPY_DOUBLE)
+#define Is_long_Array(obj)   ((PyArray_TYPE(obj)) == NPY_LONG)
+
 Bool eval_f(Index n, Number* x, Bool new_x,
             Number* obj_value, UserDataPtr data)
 {
@@ -74,10 +78,21 @@ Bool eval_f(Index n, Number* x, Bool new_x,
 	PyObject* result  = PyObject_CallObject (myowndata->eval_f_python ,arglist);
 
 	if (!result) 
+	{
 		PyErr_Print();
+		Py_DECREF(arrayx);
+		Py_CLEAR(arglist);
+		return FALSE;
+	}
 		
 	if (!PyFloat_Check(result))
+	{
 		PyErr_Print();
+		Py_DECREF(result);
+		Py_DECREF(arrayx);
+		Py_CLEAR(arglist);
+		return FALSE;
+	}
 	
 	*obj_value =  PyFloat_AsDouble(result);
 	Py_DECREF(result);
@@ -129,10 +144,37 @@ Bool eval_grad_f(Index n, Number* x, Bool new_x,
 				(myowndata->eval_grad_f_python, arglist);
 	
 	if (!result) 
+	{
 		PyErr_Print();
+		Py_DECREF(arrayx);
+		Py_CLEAR(arglist);
+		return FALSE;
+	}
 		
 	if (!PyArray_Check(result))
+	{
 		PyErr_Print();
+		Py_DECREF(result);
+		Py_DECREF(arrayx);
+		Py_CLEAR(arglist);
+		return FALSE;
+	}
+#define CHECK(expr,msg)							\
+	do if (!(expr))							\
+	{								\
+		PyErr_SetString(PyExc_TypeError, "eval_grad_f: " msg);	\
+		PyErr_Print();						\
+		Py_DECREF(result);					\
+		Py_DECREF(arrayx);					\
+		Py_CLEAR(arglist);					\
+		return FALSE;						\
+	} while(0)
+	CHECK(PyArray_ISCONTIGUOUS(result),"result array must be contiguous");
+	CHECK(Is_double_Array(result),"result must be a float array");
+	CHECK(1==PyArray_NDIM(result),"result must be a 1d array");
+	CHECK(n==PyArray_DIM(result,0),
+		"result must have as many elements as the input vector");
+#undef CHECK	
 	
 	double *tempdata = (double*)result->data;
 	int i;
@@ -194,11 +236,38 @@ Bool eval_g(Index n, Number* x, Bool new_x,
 			(myowndata->eval_g_python, arglist);
 	
 	if (!result) 
+	{
 		PyErr_Print();
+		Py_DECREF(arrayx);
+		Py_CLEAR(arglist);
+		return FALSE;
+	}
 		
 	if (!PyArray_Check(result))
+	{
 		PyErr_Print();
+		Py_DECREF(result);
+		Py_DECREF(arrayx);
+		Py_CLEAR(arglist);
+		return FALSE;
+	}
 	
+#define CHECK(expr,msg)							\
+	do if (!(expr))							\
+	{								\
+		PyErr_SetString(PyExc_TypeError, "eval_g: " msg);	\
+		PyErr_Print();						\
+		Py_DECREF(result);					\
+		Py_DECREF(arrayx);					\
+		Py_CLEAR(arglist);					\
+		return FALSE;						\
+	} while(0)
+	CHECK(PyArray_ISCONTIGUOUS(result),"result array must be contiguous");
+	CHECK(Is_double_Array(result),"result must be a float array");
+	CHECK(1==PyArray_NDIM(result),"result must be a 1d array");
+	CHECK(m==PyArray_DIM(result,0),
+		"result must have as many elements as constraints");
+#undef CHECK	
 	tempdata = (double*)result->data;
 	for (i = 0; i < m; i++)
 		g[i] = tempdata[i];
@@ -248,14 +317,46 @@ Bool eval_jac_g(Index n, Number *x, Bool new_x,
 			arglist = Py_BuildValue("(OO)", arrayx, Py_True);	
 		
 		PyObject* result = PyObject_CallObject (myowndata->eval_jac_g_python, arglist);
-		if (!PyTuple_Check(result))
+		if (!result)
+		{
 			PyErr_Print();
-			
-		PyArrayObject* row = (PyArrayObject*) PyTuple_GetItem(result, 0);
-		PyArrayObject* col = (PyArrayObject*) PyTuple_GetItem(result, 1);
-		
-		if (!row || !col || !PyList_Check(row) || !PyList_Check(col))
+			Py_DECREF(arrayx);
+			Py_CLEAR(arglist);
+			return FALSE;
+		}
+		PyArrayObject *row = NULL, *col = NULL; 
+		if (!PyArg_ParseTuple(result, "O!O!;result of eval_jac_g must be two arrays in a tuple",
+				      &PyArray_Type, &row,
+				      &PyArray_Type, &col) &&
+		    row && col)
+		{
 			PyErr_Print();
+			Py_DECREF(result);
+			Py_DECREF(arrayx);
+			Py_CLEAR(arglist);
+			return FALSE;
+		}
+#define CHECK(expr,msg) do {						\
+		if (!(expr))						\
+		{							\
+			PyErr_SetString(PyExc_TypeError, "eval_jac_g: " msg); \
+			PyErr_Print();					\
+			Py_DECREF(result);				\
+			Py_DECREF(arrayx);				\
+			Py_CLEAR(arglist);				\
+			return FALSE;					\
+		} } while(0)
+		CHECK(PyArray_ISCONTIGUOUS(row),"rows must be contiguous");
+		CHECK(PyArray_ISCONTIGUOUS(col),"columns must be contiguous");
+		CHECK(Is_long_Array(row),"rows must be an integer array");
+		CHECK(Is_long_Array(col),"columns must be an integer array");
+		CHECK(1 == PyArray_NDIM(row),"rows must be a 1d array");
+		CHECK(1 == PyArray_NDIM(col),"columns must be a 1d array");
+		CHECK(nele_jac == PyArray_DIM(row,0),
+			"there must be as many rows as non-zero jacobian values");
+		CHECK(nele_jac == PyArray_DIM(col,0),
+			"there must be as many columns as non-zero jacobian values");
+#undef CHECK
 
 		rowd = (long*) row->data;
 		cold = (long*) col->data;
@@ -299,11 +400,38 @@ Bool eval_jac_g(Index n, Number *x, Bool new_x,
 		PyArrayObject* result = (PyArrayObject*) 
 					PyObject_CallObject (myowndata->eval_jac_g_python, arglist);
 		
-		if (!result || !PyArray_Check(result)) 
+		if (!result)
+		{
 			PyErr_Print();
+			Py_DECREF(arrayx);
+			Py_CLEAR(arglist);
+			return FALSE;
+		}
+		if (!PyArray_Check(result)) 
+		{
+			PyErr_Print();
+			Py_DECREF(result);
+			Py_DECREF(arrayx);
+			Py_CLEAR(arglist);
+			return FALSE;
+		}
+#define CHECK(expr,msg)							\
+		do if (!(expr))						\
+		{							\
+			PyErr_SetString(PyExc_TypeError, "eval_jac_g: " msg); \
+			PyErr_Print();					\
+			Py_DECREF(result);				\
+			Py_DECREF(arrayx);				\
+			Py_CLEAR(arglist);				\
+			return FALSE;					\
+		} while(0)
+		CHECK(PyArray_ISCONTIGUOUS(result),"result array must be contiguous");
+		CHECK(Is_double_Array(result),"result must be a float array");
+		CHECK(1==PyArray_NDIM(result),"result must be a 1d array");
+		CHECK(nele_jac==PyArray_DIM(result,0),
+			"result must have as many values as non-zero constraint jacobian values");
+#undef CHECK	
 		
-		// Code is buggy here. We assume that result is a double array
-		assert (result->descr->type == 'd');
 		tempdata = (double*)result->data;
 		
 		for (i = 0; i < nele_jac; i++)
