@@ -114,7 +114,7 @@ Bool eval_grad_f(Index n, Number* x, Bool new_x,
 	
 	int dims[1];
 	dims[0] = n;
-	import_array( ); 
+	import_array1(FALSE); 
 	
 	PyObject *arrayx = PyArray_FromDimsAndData(1, dims, PyArray_DOUBLE , (char*) x);
 	if (!arrayx) return FALSE;
@@ -205,7 +205,7 @@ Bool eval_g(Index n, Number* x, Bool new_x,
 	double *tempdata;
 	
 	dims[0] = n;
-	import_array( );
+	import_array1(FALSE);
 	
 	PyObject *arrayx = PyArray_FromDimsAndData(1, dims, PyArray_DOUBLE , (char*) x);
 	if (!arrayx) return FALSE;
@@ -303,7 +303,7 @@ Bool eval_jac_g(Index n, Number *x, Bool new_x,
 		PyErr_Print();
 
 	if (values == NULL) {
-		import_array( )
+		import_array1(FALSE);
 		PyObject *arrayx = PyArray_FromDimsAndData(1, 
 		 			dims, PyArray_DOUBLE , (char*) x);
 		if (!arrayx) return FALSE;
