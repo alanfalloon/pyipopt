@@ -91,9 +91,11 @@ PyObject *add_int_option(PyObject *self, PyObject *args)
   	Bool ret;
   	
   	if (!PyArg_ParseTuple(args, "si", &param, &value))
+        {
   		Py_INCREF(Py_False);
-        return Py_False;
-    
+                return Py_False;
+        }
+
   	ret = AddIpoptIntOption(nlp, (char*) param, value);
 	if (ret) 
 	{
