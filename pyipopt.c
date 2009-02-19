@@ -380,6 +380,7 @@ static PyObject *create(PyObject *obj, PyObject *args)
 }
 
 static PyObject *pyexctype = NULL, *pyexcval = NULL, *pyexctb = NULL;
+static PyObject *PyExc_SolveError = NULL, *PyExc_SolveExceedMaxIter = NULL;
 
 void save_python_exception(void)
 {
@@ -477,7 +478,10 @@ PyObject *solve(PyObject *self, PyObject *args)
  	// The final parameter is the userdata (void * type)
  
  	// For status code, see: IpReturnCodes_inc.h 
-  	if (status == Solve_Succeeded || status == Solved_To_Acceptable_Level ) {
+  	if (status == Solve_Succeeded ||
+	    status == Solved_To_Acceptable_Level ||
+	    status == User_Requested_Stop ||
+	    status == Maximum_Iterations_Exceeded ) {
   		logger("Problem solved\n");
 		double* xdata = (double*) x->data;
 		for (i =0; i< n; i++)
@@ -487,10 +491,18 @@ PyObject *solve(PyObject *self, PyObject *args)
 		if (newx0) free(newx0);
 		
 		/* A fix for the mem-leak problem */
-		return Py_BuildValue( "NNNd",
+		PyObject *r = Py_BuildValue( "NNNd",
                               PyArray_Return( x ),
                               PyArray_Return( mL ),
                               PyArray_Return( mU ), obj);
+		if (!r) return NULL;
+
+		if (status != Maximum_Iterations_Exceeded)
+			return r;
+
+		PyErr_SetObject(PyExc_SolveExceedMaxIter, r);
+		Py_DECREF(r);
+		return NULL;
   	}
   	
   	
@@ -498,7 +510,7 @@ PyObject *solve(PyObject *self, PyObject *args)
   		// FreeIpoptProblem(nlp);
   		printf("[Error] Ipopt faied in solving problem instance\n");
 		if (!restore_python_exception())
-			PyErr_SetString(PyExc_RuntimeError, "Ipopt search failed");
+			PyErr_SetString(PyExc_SolveError, "Ipopt search failed");
   		return NULL;
 	}
 }
@@ -544,14 +556,27 @@ initpyipopt(void)
 	   PyObject* m = 
 	   		Py_InitModule3("pyipopt", ipoptMethods, 
 	   			"A hooker between Ipopt and Python");
+	   if (!m) goto error;
 	   
 	   import_array( );         /* Initialize the Numarray module. */
 		/* A segfault will occur if I use numarray without this.. */
+
+	   PyExc_SolveError = PyErr_NewException("pyipopt.SolveError",
+						  NULL,NULL);
+	   if (!PyExc_SolveError) goto error;
+	   PyExc_SolveExceedMaxIter = PyErr_NewException("pyipopt.SolveExceedMaxIter",
+							 PyExc_SolveError,NULL);
+	   if (!PyExc_SolveExceedMaxIter) goto error;
+	   if (-1 == PyObject_SetAttrString(m,"SolveError",PyExc_SolveError)) goto error;
+	   if (-1 == PyObject_SetAttrString(m,"SolveExceedMaxIter",PyExc_SolveExceedMaxIter)) goto error;
 
 	   if (PyErr_Occurred())	
 	 	  Py_FatalError("Unable to initialize module pyipopt");
 	 	  
     	return;
+error:
+	PyErr_Print();
+	Py_FatalError("Unable to initialize module pyipopt");
 }
 /* End Python Module code section */
 
