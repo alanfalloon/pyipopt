@@ -489,11 +489,46 @@ Bool eval_h(Index n, Number *x, Bool new_x, Number obj_factor,
 		
 		PyObject* result 	= 
 			PyObject_CallObject (myowndata->eval_h_python, arglist);
-		if (!PyTuple_Check(result))
+		if (!result)
+		{
 			PyErr_Print();
-			
-		PyArrayObject* row = (PyArrayObject*)PyTuple_GetItem(result, 0);
-		PyArrayObject* col = (PyArrayObject*)PyTuple_GetItem(result, 1);
+			Py_DECREF(objfactor);
+			Py_CLEAR(arglist);
+			return FALSE;
+		}
+		PyArrayObject *row = NULL, *col = NULL; 
+		if (!PyArg_ParseTuple(result, "O!O!;result of eval_h must be two arrays in a tuple",
+				      &PyArray_Type, &row,
+				      &PyArray_Type, &col) &&
+		    row && col)
+		{
+			PyErr_Print();
+			Py_DECREF(result);
+			Py_DECREF(objfactor);
+			Py_CLEAR(arglist);
+			return FALSE;
+		}
+#define CHECK(expr,msg) do {						\
+		if (!(expr))						\
+		{							\
+			PyErr_SetString(PyExc_TypeError, "eval_h: " msg); \
+			PyErr_Print();					\
+			Py_DECREF(result);				\
+			Py_DECREF(objfactor);				\
+			Py_CLEAR(arglist);				\
+			return FALSE;					\
+		} } while(0)
+		CHECK(PyArray_ISCONTIGUOUS(row),"rows must be contiguous");
+		CHECK(PyArray_ISCONTIGUOUS(col),"columns must be contiguous");
+		CHECK(Is_long_Array(row),"rows must be an integer array");
+		CHECK(Is_long_Array(col),"columns must be an integer array");
+		CHECK(1 == PyArray_NDIM(row),"rows must be a 1d array");
+		CHECK(1 == PyArray_NDIM(col),"columns must be a 1d array");
+		CHECK(nele_hess == PyArray_DIM(row,0),
+			"there must be as many rows as non-zero hessian values");
+		CHECK(nele_hess == PyArray_DIM(col,0),
+			"there must be as many columns as non-zero hessian values");
+#undef CHECK
 
 		long* rdata = (long*)row->data;
 		long* cdata = (long*)col->data;
@@ -503,6 +538,17 @@ Bool eval_h(Index n, Number *x, Bool new_x, Number obj_factor,
 		for (i = 0; i < nele_hess; i++) {
 			iRow[i] = (Index)rdata[i];
 			jCol[i] = (Index)cdata[i];
+			if ( n < iRow[i] || n < jCol[i] )
+			{
+				PyErr_SetString(PyExc_TypeError, "eval_h: "
+					"Row or column must be less than "
+					"number of input elements");
+				PyErr_Print();					
+				Py_DECREF(result);				
+				Py_DECREF(objfactor);
+				Py_CLEAR(arglist);				
+				return FALSE;					
+			}
 			// logger("PyIPOPT_DEBUG %d, %d\n", iRow[i], jCol[i]);
 		}
 
@@ -548,7 +594,43 @@ Bool eval_h(Index n, Number *x, Bool new_x, Number obj_factor,
 			(PyArrayObject*) PyObject_CallObject 
 				(myowndata->eval_h_python, arglist);
 		
-		if (!result) printf("[Error] Python function eval_h returns a None\n");
+		if (!result)
+		{
+			PyErr_Print();
+			Py_DECREF(arrayx);
+			Py_CLEAR(lagrangex);
+			Py_CLEAR(objfactor);
+			Py_CLEAR(arglist);
+			return FALSE;
+		}
+		if (!PyArray_Check(result)) 
+		{
+			PyErr_Print();
+			Py_DECREF(result);
+			Py_CLEAR(lagrangex);
+			Py_CLEAR(objfactor);
+			Py_DECREF(arrayx);
+			Py_CLEAR(arglist);
+			return FALSE;
+		}
+#define CHECK(expr,msg)							\
+		do if (!(expr))						\
+		{							\
+			PyErr_SetString(PyExc_TypeError, "eval_h: " msg); \
+			PyErr_Print();					\
+			Py_DECREF(result);				\
+			Py_CLEAR(lagrangex);				\
+			Py_CLEAR(objfactor);				\
+			Py_DECREF(arrayx);				\
+			Py_CLEAR(arglist);				\
+			return FALSE;					\
+		} while(0)
+		CHECK(PyArray_ISCONTIGUOUS(result),"result array must be contiguous");
+		CHECK(Is_double_Array(result),"result must be a float array");
+		CHECK(1==PyArray_NDIM(result),"result must be a 1d array");
+		CHECK(nele_hess==PyArray_DIM(result,0),
+			"result must have as many values as non-zero hessian values");
+#undef CHECK	
 		
 		double* tempdata = (double*)result->data;
 		for (i = 0; i < nele_hess; i++)
