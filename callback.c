@@ -587,9 +587,9 @@ Bool eval_h(Index n, Number *x, Bool new_x, Number obj_factor,
 		PyObject* arglist;
 		
 		if (user_data != NULL)
-			arglist = Py_BuildValue("(OOOO)", arrayx, lagrangex, objfactor, Py_False, (PyObject*)user_data);
+			arglist = Py_BuildValue("(OOOOO)", arrayx, lagrangex, objfactor, Py_False, (PyObject*)user_data);
 		else
-			arglist = Py_BuildValue("(OOOOO)", arrayx, lagrangex, objfactor, Py_False);
+			arglist = Py_BuildValue("(OOOO)", arrayx, lagrangex, objfactor, Py_False);
 		PyArrayObject* result = 
 			(PyArrayObject*) PyObject_CallObject 
 				(myowndata->eval_h_python, arglist);
