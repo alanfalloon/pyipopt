@@ -379,7 +379,29 @@ static PyObject *create(PyObject *obj, PyObject *args)
 	return (PyObject *)object;
 }
 
+static PyObject *pyexctype = NULL, *pyexcval = NULL, *pyexctb = NULL;
 
+void save_python_exception(void)
+{
+	PyObject *exc = NULL, *val = NULL, *tb = NULL;
+	PyErr_Fetch(&exc, &val, &tb);
+	if (NULL == exc) return;
+	PyErr_NormalizeException(&exc, &val, &tb);
+	Py_XDECREF(pyexctype);
+	Py_XDECREF(pyexcval);
+	Py_XDECREF(pyexctb);
+	pyexctype = exc;
+	pyexcval = val;
+	pyexctb = tb;
+}
+
+int restore_python_exception(void)
+{
+	if (!pyexctype) return FALSE;
+	PyErr_Restore(pyexctype, pyexcval, pyexctb);
+	pyexctype=pyexcval=pyexctb=NULL;
+	return TRUE;
+}
 
 PyObject *solve(PyObject *self, PyObject *args)
 {
@@ -408,10 +430,8 @@ PyObject *solve(PyObject *self, PyObject *args)
 	PyObject* myuserdata = NULL;
 	
 	if (!PyArg_ParseTuple(args, "O!|O", &PyArray_Type, &x0, &myuserdata)) 
-    {
-		printf("[Error] Parameter X0 is expected to be an Numpy array type.\n");
-		Py_INCREF(Py_False);
-		return Py_False;
+	{
+		return NULL;
 	}
 	
 	if (myuserdata != NULL)
@@ -422,9 +442,8 @@ PyObject *solve(PyObject *self, PyObject *args)
 		
 	if (nlp == NULL)
 	{
-		printf("[Error] nlp objective passed to solve is NULL\n Problem created?\n");
-		Py_INCREF(Py_False);
-		return Py_False;
+		PyErr_SetString(PyExc_ValueError, "nlp objective passed to solve is NULL. Problem created?");
+		return NULL;
 	}
  	
 	/* set some options */
@@ -458,7 +477,7 @@ PyObject *solve(PyObject *self, PyObject *args)
  	// The final parameter is the userdata (void * type)
  
  	// For status code, see: IpReturnCodes_inc.h 
-  	if (status == Solve_Succeeded || Solved_To_Acceptable_Level ) {
+  	if (status == Solve_Succeeded || status == Solved_To_Acceptable_Level ) {
   		logger("Problem solved\n");
 		double* xdata = (double*) x->data;
 		for (i =0; i< n; i++)
@@ -478,8 +497,9 @@ PyObject *solve(PyObject *self, PyObject *args)
   	else {
   		// FreeIpoptProblem(nlp);
   		printf("[Error] Ipopt faied in solving problem instance\n");
-  		Py_INCREF(Py_False);
-  		return Py_False;
+		if (!restore_python_exception())
+			PyErr_SetString(PyExc_RuntimeError, "Ipopt search failed");
+  		return NULL;
 	}
 }
 

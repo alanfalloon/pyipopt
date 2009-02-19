@@ -52,5 +52,6 @@ typedef struct {
 } problem;
 
 
+void save_python_exception(void);
 
 #endif
