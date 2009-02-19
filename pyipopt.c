@@ -118,16 +118,16 @@ PyObject *add_num_option(PyObject *self, PyObject *args)
   	IpoptProblem nlp = (IpoptProblem)(temp->nlp);
   	
   	char* param;
-  	double value;
+  	double value = 1.;
   	
   	Bool ret;
-  	
-  	if (!PyArg_ParseTuple(args, "sd", &param, &value)) {
-      	Py_INCREF(Py_False);
-        return Py_False;
-     }
-     
-  	ret = AddIpoptNumOption(nlp, (char*) param, value);
+
+	if (!PyArg_ParseTuple(args, "sd:num_option", &param, &value))
+	{
+		return NULL;
+	}
+
+ 	ret = AddIpoptNumOption(nlp, (char*) param, value);
 	if (ret) 
 	{
 		Py_INCREF(Py_True);
@@ -239,11 +239,11 @@ static PyObject *create(PyObject *obj, PyObject *args)
 	double* xldata, *xudata;
 	double* gldata, *gudata;
 	
-    double result;
-    int i;
+	double result;
+	int i;
     
-    // Init the myowndata field
-    myowndata.eval_f_python = NULL;
+	// Init the myowndata field
+	myowndata.eval_f_python = NULL;
 	myowndata.eval_grad_f_python = NULL; 
 	myowndata.eval_g_python = NULL;
 	myowndata.eval_jac_g_python = NULL;
@@ -251,121 +251,132 @@ static PyObject *create(PyObject *obj, PyObject *args)
 	myowndata.apply_new_python = NULL;
 	myowndata.userdata = NULL;
     
-    // "O!", &PyArray_Type &a_x 
-    if (!PyArg_ParseTuple(args, "iO!O!iO!O!iiOOOO|OO", 
-    	&n, &PyArray_Type, &xL, 
-    		&PyArray_Type, &xU, 
-    		&m, 
-    		&PyArray_Type, &gL,
-    		&PyArray_Type, &gU,
-    		&nele_jac, &nele_hess,
-    		&f, &gradf, &g, &jacg, 
-    		&h, &applynew)) 
-    {
-    	printf("[PyIPOPT] Wrong Argument, return false\n");
-    	Py_INCREF(Py_False);
-        return Py_False;
-    }    
+	// "O!", &PyArray_Type &a_x 
+	if (!PyArg_ParseTuple(args, "iO!O!iO!O!iiOOOO|OO", 
+			      &n, &PyArray_Type, &xL, 
+			      &PyArray_Type, &xU, 
+			      &m, 
+			      &PyArray_Type, &gL,
+			      &PyArray_Type, &gU,
+			      &nele_jac, &nele_hess,
+			      &f, &gradf, &g, &jacg, 
+			      &h, &applynew)) 
+	{
+		return NULL;
+	}    
         
-    if (!PyCallable_Check(f) 		||
-    	!PyCallable_Check(gradf) 	|| 
-    	!PyCallable_Check(g)		||
-    	!PyCallable_Check(jacg))
-        	PyErr_SetString(PyExc_TypeError, 
-        		"Need a callable object for function!");
-    else {
-		myowndata.eval_f_python 		= f;
-		myowndata.eval_grad_f_python 	= gradf;
-		myowndata.eval_g_python 		= g;
-		myowndata.eval_jac_g_python 	= jacg;
-		 // logger("D field assigned %p\n", &myowndata);
-		 // logger("D field assigned %p\n",myowndata.eval_jac_g_python );
+	if (!PyCallable_Check(f)     ||
+	    !PyCallable_Check(gradf) || 
+	    !PyCallable_Check(g)     ||
+	    !PyCallable_Check(jacg))
+	{
+		PyErr_SetString(PyExc_TypeError, 
+				"Need a callable object for function!");
+		return NULL;
+	}
+	myowndata.eval_f_python      = f;
+	myowndata.eval_grad_f_python = gradf;
+	myowndata.eval_g_python      = g;
+	myowndata.eval_jac_g_python  = jacg;
+	// logger("D field assigned %p\n", &myowndata);
+	// logger("D field assigned %p\n",myowndata.eval_jac_g_python );
 		
-		if (h !=NULL )
+	if (h !=NULL )
+	{
+		if (!PyCallable_Check(h))
 		{
-			if (!PyCallable_Check(h))	
-				PyErr_SetString(PyExc_TypeError, 
-        		 "Need a callable object for function h.");
-        	else if (!PyCallable_Check(applynew))
-        		PyErr_SetString(PyExc_TypeError, 
-        		 "Need a callable object for function applynew.");
-        	else
-				myowndata.eval_h_python	= h;
-				myowndata.apply_new_python = applynew;
+			PyErr_SetString(PyExc_TypeError, 
+					"Need a callable object for function h.");
+			return NULL;
 		}
-		else
-		{
-			logger("[PyIPOPT] Ipopt will use Hessian approximation.\n");
-		}
-		
-		Number* x_L = NULL;                  /* lower bounds on x */
-  		Number* x_U = NULL;                  /* upper bounds on x */
-  		Number* g_L = NULL;                  /* lower bounds on g */
-  		Number* g_U = NULL;                  /* upper bounds on g */
-		
-		if (m <0 || n<0 ) {
-			logger("[PyIPOPT] m or n can't be negative, return false\n");
-			Py_INCREF(Py_False);
-			return Py_False;
-		}
-			
-		x_L = (Number*)malloc(sizeof(Number)*n);
-  		x_U = (Number*)malloc(sizeof(Number)*n);
-  		if (!x_L || !x_U) PyErr_Print();
-  			
-		xldata = (double*)xL->data;
-		xudata = (double*)xU->data;
-		for (i = 0; i< n; i++) {
-			x_L[i] = xldata[i];
-			x_U[i] = xudata[i];
-		}
-		 
-  		g_L = (Number*)malloc(sizeof(Number)*m);
-  		g_U = (Number*)malloc(sizeof(Number)*m);		
-  		if (!g_L || !g_U) PyErr_Print();
-		
-		gldata = (double*)gL->data;
-		gudata = (double*)gU->data;
-		
-		for (i = 0; i< m; i++)
-		{
-			g_L[i] = gldata[i];
-			g_U[i] = gudata[i];
-		}
+		myowndata.eval_h_python	= h;
+	}
+	else
+	{
+		logger("[PyIPOPT] Ipopt will use Hessian approximation.\n");
+	}
 
-	  	/* create the Ipopt Problem */
-	  	
-	  	int C_indexstyle = 0;
-	  	logger("[PyIPOPT] nele_hess is %d\n", nele_hess);
-		IpoptProblem thisnlp = CreateIpoptProblem(n, x_L, x_U, m, g_L, g_U, nele_jac, nele_hess, C_indexstyle,  &eval_f, &eval_g, &eval_grad_f,  &eval_jac_g, &eval_h);
-		logger("[PyIPOPT] Problem created");
-		
-		// AddIpoptStrOption(thisnlp, "max_iter", 200);
-		
-		problem *object = NULL;
-		
-		object = PyObject_NEW(problem , &IpoptProblemType);
-		
-		if (object != NULL)
-    	{
-    		object->nlp = thisnlp;
-    		DispatchData *dp = malloc(sizeof(DispatchData));
-			memcpy((void*)dp, (void*)&myowndata, sizeof(DispatchData));
-			object->data = dp;
+	if (applynew != NULL)
+	{
+		if (!PyCallable_Check(applynew))
+		{
+			PyErr_SetString(PyExc_TypeError, 
+					"Need a callable object for function applynew.");
+			return NULL;
 		}
+		myowndata.apply_new_python = applynew;
+	}
 		
-		else 
-			Py_FatalError("Can't create a new Problem instance");
+	Number* x_L = NULL;                  /* lower bounds on x */
+	Number* x_U = NULL;                  /* upper bounds on x */
+	Number* g_L = NULL;                  /* lower bounds on g */
+	Number* g_U = NULL;                  /* upper bounds on g */
+    
+	if (n<0) {
+		PyErr_SetString(PyExc_ValueError, "Input dimension must be greater than 1");
+		return NULL;
+	}
+	if (m<0) {
+		PyErr_SetString(PyExc_ValueError, "Number of constraints be positive or zero");
+		return NULL;
+	}
+			
+	x_L = (Number*)malloc(sizeof(Number)*n);
+	x_U = (Number*)malloc(sizeof(Number)*n);
+	if (!x_L || !x_U)
+	{
+		PyErr_SetString(PyExc_SystemError, "Cannot allocate memory");
+		return NULL;
+	}
+    
+	xldata = (double*)xL->data;
+	xudata = (double*)xU->data;
+	for (i = 0; i< n; i++) {
+		x_L[i] = xldata[i];
+		x_U[i] = xudata[i];
+	}
+		 
+	g_L = (Number*)malloc(sizeof(Number)*m);
+	g_U = (Number*)malloc(sizeof(Number)*m);		
+	if (!g_L || !g_U)
+	{
+		PyErr_SetString(PyExc_SystemError, "Cannot allocate memory");
+		return NULL;
+	}
+		
+	gldata = (double*)gL->data;
+	gudata = (double*)gU->data;
+		
+	for (i = 0; i< m; i++)
+	{
+		g_L[i] = gldata[i];
+		g_U[i] = gudata[i];
+	}
+
+	/* create the Ipopt Problem */
+	  	
+	int C_indexstyle = 0;
+	logger("[PyIPOPT] nele_hess is %d\n", nele_hess);
+	IpoptProblem thisnlp = CreateIpoptProblem(n, x_L, x_U, m, g_L, g_U, nele_jac, nele_hess, C_indexstyle,  &eval_f, &eval_g, &eval_grad_f,  &eval_jac_g, &eval_h);
+	logger("[PyIPOPT] Problem created");
+		
+	// AddIpoptStrOption(thisnlp, "max_iter", 200);
+		
+	problem *object = NULL;
+		
+	object = PyObject_NEW(problem , &IpoptProblemType);
+	if (!object) return NULL;
+		
+	object->nlp = thisnlp;
+	DispatchData *dp = malloc(sizeof(DispatchData));
+	memcpy((void*)dp, (void*)&myowndata, sizeof(DispatchData));
+	object->data = dp;
 				
       	free(x_L);
-  		free(x_U);
-  		free(g_L);
-  		free(g_U);
-		return (PyObject *)object;
-		// return Py_True;
-	} // end if
-	Py_INCREF(Py_False);
-	return Py_False;
+	free(x_U);
+	free(g_L);
+	free(g_U);
+	return (PyObject *)object;
 }
 
 
