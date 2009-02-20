@@ -26,3 +26,4 @@ Version log
 
 	Version 0.7: Fixed a bug for the value of m and n, a bug for reference counting.
 
+	Version 0.8: Changed the return value of pyipopt.solve to be a dict, and fixed some bugs.

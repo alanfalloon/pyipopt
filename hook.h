@@ -49,6 +49,7 @@ typedef struct {
 	PyObject_HEAD
 	IpoptProblem nlp;
 	DispatchData* data;
+	Index n,m;
 } problem;
 
 

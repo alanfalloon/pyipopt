@@ -368,6 +368,8 @@ static PyObject *create(PyObject *obj, PyObject *args)
 	if (!object) return NULL;
 		
 	object->nlp = thisnlp;
+	object->n = n;
+	object->m = m;
 	DispatchData *dp = malloc(sizeof(DispatchData));
 	memcpy((void*)dp, (void*)&myowndata, sizeof(DispatchData));
 	object->data = dp;
@@ -408,24 +410,22 @@ PyObject *solve(PyObject *self, PyObject *args)
 {
     enum ApplicationReturnStatus status; /* Solve return code */
     int i;
-    int n;
 	
 	
-  	Number* mult_x_L = NULL;
-  	Number* mult_x_U = NULL; 
   	/* Return values */
   	problem* temp = (problem*)self;
+	const int n=temp->n;
+	const int m=temp->m;
   	
   	IpoptProblem nlp = (IpoptProblem)(temp->nlp);
   	DispatchData* bigfield = (DispatchData*)(temp->data);
   	
-  	int dX[1];
-  	int dL[1];
+  	int dX[1] = {n};
+  	int dL[1] = {m};
   	
-  	PyArrayObject *x, *mL, *mU;
+  	PyArrayObject *x, *mL, *mU, *lambda, *con;
   	Number obj;                          /* objective value */
   	
-  	PyObject* result = Py_False;
 	PyArrayObject *x0;
 	
 	PyObject* myuserdata = NULL;
@@ -458,23 +458,25 @@ PyObject *solve(PyObject *self, PyObject *args)
 	}
   	/* allocate space for the initial point and set the values */
   	
-  	// There is a compiler warning here, don't panic, it's correct 
-  	int* dim = ((PyArrayObject*)x0)->dimensions; 
-  	n = dim[0];
-  	dX[0]  = n;
 	// logger("n is %d, m is %d\n", n, m);
 	x = (PyArrayObject *)PyArray_FromDims( 1, dX, PyArray_DOUBLE );
 	
-	Number* newx0 = (Number*)malloc(sizeof(Number)*n);
+	Number* newx0 = (Number*)malloc(sizeof(Number)*temp->n);
 	double* xdata = (double*) x0->data;
 	for (i =0; i< n; i++)
 		newx0[i] = xdata[i];
 	
   	mL = (PyArrayObject *)PyArray_FromDims( 1, dX, PyArray_DOUBLE );
 	mU = (PyArrayObject *)PyArray_FromDims( 1, dX, PyArray_DOUBLE );
+	lambda = (PyArrayObject *)PyArray_FromDims( 1, dL, PyArray_DOUBLE );
+	con = (PyArrayObject *)PyArray_FromDims( 1, dL, PyArray_DOUBLE );
 	// logger("Ready to go\n");
 			
-  	status = IpoptSolve(nlp, newx0, NULL, &obj, NULL, (double*)mL->data, (double*)mU->data, (UserDataPtr)bigfield);
+  	status = IpoptSolve(nlp, newx0, (double*)con->data, &obj,
+			    (double*)lambda->data,
+			    (double*)mL->data,
+			    (double*)mU->data,
+			    (UserDataPtr)bigfield);
  	// The final parameter is the userdata (void * type)
  
  	// For status code, see: IpReturnCodes_inc.h 
@@ -491,10 +493,14 @@ PyObject *solve(PyObject *self, PyObject *args)
 		if (newx0) free(newx0);
 		
 		/* A fix for the mem-leak problem */
-		PyObject *r = Py_BuildValue( "NNNd",
-                              PyArray_Return( x ),
-                              PyArray_Return( mL ),
-                              PyArray_Return( mU ), obj);
+		PyObject *r =
+			Py_BuildValue( "{sNsNsNsNsNsd}",
+				       "x", PyArray_Return( x ),
+				       "mult_xL", PyArray_Return( mL ),
+				       "mult_xU", PyArray_Return( mU ),
+				       "mult_g", PyArray_Return( lambda ),
+				       "g", con,
+				       "f", obj);
 		if (!r) return NULL;
 
 		if (status != Maximum_Iterations_Exceeded)
