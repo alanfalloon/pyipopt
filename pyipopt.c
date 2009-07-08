@@ -26,6 +26,8 @@
 
 #include "hook.h"
 
+
+
 /* Object Section */
 // sig of this is void foo(PyO*)
 static void problem_dealloc(PyObject* self)
@@ -420,8 +422,8 @@ PyObject *solve(PyObject *self, PyObject *args)
   	IpoptProblem nlp = (IpoptProblem)(temp->nlp);
   	DispatchData* bigfield = (DispatchData*)(temp->data);
   	
-  	int dX[1] = {n};
-  	int dL[1] = {m};
+  	npy_intp dX[1] = {n};
+  	npy_intp dL[1] = {m};
   	
   	PyArrayObject *x, *mL, *mU, *lambda, *con;
   	Number obj;                          /* objective value */
@@ -459,17 +461,17 @@ PyObject *solve(PyObject *self, PyObject *args)
   	/* allocate space for the initial point and set the values */
   	
 	// logger("n is %d, m is %d\n", n, m);
-	x = (PyArrayObject *)PyArray_FromDims( 1, dX, PyArray_DOUBLE );
+	x = (PyArrayObject *)PyArray_SimpleNew( 1, dX, PyArray_DOUBLE );
 	
 	Number* newx0 = (Number*)malloc(sizeof(Number)*temp->n);
 	double* xdata = (double*) x0->data;
 	for (i =0; i< n; i++)
 		newx0[i] = xdata[i];
 	
-  	mL = (PyArrayObject *)PyArray_FromDims( 1, dX, PyArray_DOUBLE );
-	mU = (PyArrayObject *)PyArray_FromDims( 1, dX, PyArray_DOUBLE );
-	lambda = (PyArrayObject *)PyArray_FromDims( 1, dL, PyArray_DOUBLE );
-	con = (PyArrayObject *)PyArray_FromDims( 1, dL, PyArray_DOUBLE );
+  	mL = (PyArrayObject *)PyArray_SimpleNew( 1, dX, PyArray_DOUBLE );
+	mU = (PyArrayObject *)PyArray_SimpleNew( 1, dX, PyArray_DOUBLE );
+	lambda = (PyArrayObject *)PyArray_SimpleNew( 1, dL, PyArray_DOUBLE );
+	con = (PyArrayObject *)PyArray_SimpleNew( 1, dL, PyArray_DOUBLE );
 	// logger("Ready to go\n");
 			
   	status = IpoptSolve(nlp, newx0, (double*)con->data, &obj,

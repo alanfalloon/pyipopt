@@ -79,7 +79,7 @@ Bool eval_f(Index n, Number* x, Bool new_x,
 {
 	Bool r = FALSE;
 	logger("[Callback:E]eval_f");
-	int dims[1];
+	npy_intp dims[1];
 	dims[0] = n;
 
 	DispatchData *myowndata = (DispatchData*) data;
@@ -91,7 +91,7 @@ Bool eval_f(Index n, Number* x, Bool new_x,
 		ERROR;
 	}
 
-	PyObject *arrayx = PyArray_FromDimsAndData(1, dims, PyArray_DOUBLE , (char*) x);
+	PyObject *arrayx = PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE , (char*) x);
 	if (!arrayx) ERROR;
 
 	if (new_x) if (!apply_new_python(myowndata, arrayx)) ERROR;
@@ -141,11 +141,11 @@ Bool eval_grad_f(Index n, Number* x, Bool new_x,
 		ERROR;
 	}
 	
-	int dims[1];
+	npy_intp dims[1];
 	dims[0] = n;
 	import_array1(FALSE); 
 	
-	arrayx = PyArray_FromDimsAndData(1, dims, PyArray_DOUBLE , (char*) x);
+	arrayx = PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE , (char*) x);
 	if (!arrayx) ERROR;
 	
 	if (new_x) if (!apply_new_python(myowndata, arrayx)) ERROR;
@@ -206,14 +206,14 @@ Bool eval_g(Index n, Number* x, Bool new_x,
 		ERROR;
 	}
 
-	int dims[1];
+	npy_intp dims[1];
 	int i;
 	double *tempdata;
 	
 	dims[0] = n;
 	import_array1(FALSE);
 	
-	arrayx = PyArray_FromDimsAndData(1, dims, PyArray_DOUBLE , (char*) x);
+	arrayx = PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE , (char*) x);
 	if (!arrayx) ERROR;
 	
 	if (new_x) if (!apply_new_python(myowndata, arrayx)) ERROR;
@@ -272,7 +272,7 @@ Bool eval_jac_g(Index n, Number *x, Bool new_x,
 	long* rowd = NULL; 
 	long* cold = NULL;
 	
-	int dims[1];
+	npy_intp dims[1];
 	dims[0] = n;
 	
 	double *tempdata;
@@ -285,7 +285,8 @@ Bool eval_jac_g(Index n, Number *x, Bool new_x,
 
 	if (values == NULL) {
 		import_array1(FALSE);
-		arrayx = PyArray_FromDimsAndData(1, dims, PyArray_DOUBLE , (char*) x);
+		PyObject *arrayx = PyArray_SimpleNewFromData(1, 
+					dims, PyArray_DOUBLE , (char*) x);
 		if (!arrayx) ERROR;
 
 		if (user_data != NULL)
@@ -330,7 +331,7 @@ Bool eval_jac_g(Index n, Number *x, Bool new_x,
 	}
 	
 	else {
-		arrayx = PyArray_FromDimsAndData(1, dims, PyArray_DOUBLE , (char*) x);
+		arrayx = PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE , (char*) x);
 		if (!arrayx) ERROR;
 		
 		if (new_x) if (!apply_new_python(myowndata, arrayx)) ERROR;
@@ -392,8 +393,8 @@ Bool eval_h(Index n, Number *x, Bool new_x, Number obj_factor,
 	
 
 	int i;
-	int dims[1];
-	int dims2[1];
+	npy_intp dims[1];
+	npy_intp dims2[1];
 	
 	if (myowndata->eval_h_python == NULL) 
 	{
@@ -462,13 +463,13 @@ Bool eval_h(Index n, Number *x, Bool new_x, Number obj_factor,
 		objfactor = Py_BuildValue("d", obj_factor);
 		
 		dims[0] = n;
-		arrayx = PyArray_FromDimsAndData(1, dims, PyArray_DOUBLE , (char*) x);
+		arrayx = PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE , (char*) x);
 		if (!arrayx) ERROR;
 		
 		if (new_x) if (!apply_new_python(myowndata, arrayx)) ERROR;
 		
 		dims2[0] = m;
-		lagrange = PyArray_FromDimsAndData(1, dims2, PyArray_DOUBLE , (char*) lambda);
+		lagrange = PyArray_SimpleNewFromData(1, dims2, PyArray_DOUBLE , (char*) lambda);
 		if (!lagrange) ERROR;
 		
 		if (user_data != NULL)

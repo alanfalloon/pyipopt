@@ -1,0 +1,17 @@
+.*
+*.*~
+*.py~
+*.pyc
+
+*.o
+*.os
+*.so
+*~
+
+Doxyfile
+build
+*.log
+
+# EXCEPTIONS
+!README
+!.gitignore
