@@ -410,6 +410,8 @@ int restore_python_exception(void)
 
 PyObject *solve(PyObject *self, PyObject *args)
 {
+
+
     enum ApplicationReturnStatus status; /* Solve return code */
     int i;
 	
@@ -429,6 +431,7 @@ PyObject *solve(PyObject *self, PyObject *args)
   	Number obj;                          /* objective value */
   	
 	PyArrayObject *x0;
+
 	
 	PyObject* myuserdata = NULL;
 	
@@ -461,7 +464,9 @@ PyObject *solve(PyObject *self, PyObject *args)
   	/* allocate space for the initial point and set the values */
   	
 	// logger("n is %d, m is %d\n", n, m);
+	
 	x = (PyArrayObject *)PyArray_SimpleNew( 1, dX, PyArray_DOUBLE );
+	
 	
 	Number* newx0 = (Number*)malloc(sizeof(Number)*temp->n);
 	double* xdata = (double*) x0->data;
@@ -480,6 +485,8 @@ PyObject *solve(PyObject *self, PyObject *args)
 			    (double*)mU->data,
 			    (UserDataPtr)bigfield);
  	// The final parameter is the userdata (void * type)
+
+
  
  	// For status code, see: IpReturnCodes_inc.h 
   	if (status == Solve_Succeeded ||

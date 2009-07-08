@@ -269,8 +269,8 @@ Bool eval_jac_g(Index n, Number *x, Bool new_x,
 	UserDataPtr user_data = (UserDataPtr) myowndata->userdata;
 	
 	int i;
-	long* rowd = NULL; 
-	long* cold = NULL;
+	npy_intp* rowd = NULL;
+	npy_intp* cold = NULL;
 	
 	npy_intp dims[1];
 	dims[0] = n;
@@ -319,8 +319,8 @@ Bool eval_jac_g(Index n, Number *x, Bool new_x,
 			"there must be as many columns as non-zero jacobian values");
 #undef CHECK
 
-		rowd = (long*) row->data;
-		cold = (long*) col->data;
+		rowd = (npy_intp*) row->data;
+		cold = (npy_intp*) col->data;
 		
 		for (i = 0; i < nele_jac; i++) {
 			iRow[i] = (Index) rowd[i];

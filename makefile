@@ -5,8 +5,8 @@ LDFLAGS = -lipopt  -lm -lblas -llapack
 PY_DIR = /usr/local/lib/python2.5/site-packages
 
 # Change this to your ipopt include path that includes IpStdCInterface.h 
-IPOPT_INCLUDE = /home/basti/workspace/ipopt/build/include/coin
-IPOPT_LIB =    /home/basti/workspace/ipopt/build/lib
+IPOPT_INCLUDE = /data/walter/opt_software/ipopt/include/coin
+IPOPT_LIB =    /data/walter/opt_software/ipopt/lib
 
 
 # Change this to your python dir which includes Python.h
