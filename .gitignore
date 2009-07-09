@@ -8,7 +8,8 @@
 *.so
 *~
 
-Doxyfile
+makefile
+
 build
 *.log
 
